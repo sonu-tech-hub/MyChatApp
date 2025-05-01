@@ -1,0 +1,44 @@
+/* client/src/index.css - Add proper dark mode support */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark mode variables */
+:root {
+  --color-primary: #4F46E5;
+  --color-primary-dark: #4338CA;
+  --color-text: #1F2937;
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E7EB;
+}
+
+.dark {
+  --color-primary: #6366F1;
+  --color-primary-dark: #5661F4;
+  --color-text: #F9FAFB;
+  --color-background: #111827;
+  --color-surface: #1F2937;
+  --color-border: #374151;
+}
+
+/* Custom colors using CSS variables */
+.bg-theme-primary {
+  background-color: var(--color-primary);
+}
+
+.text-theme-primary {
+  color: var(--color-primary);
+}
+
+.bg-theme-surface {
+  background-color: var(--color-surface);
+}
+
+.text-theme-text {
+  color: var(--color-text);
+}
+
+.border-theme {
+  border-color: var(--color-border);
+}
