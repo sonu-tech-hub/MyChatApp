@@ -3,17 +3,25 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
-// Protected routes
+// ✅ Specific GET routes FIRST
 router.get('/me', authMiddleware, userController.getCurrentUser);
-router.get('/:userId', authMiddleware, userController.getUserById);
+router.get('/search', authMiddleware, userController.searchUsers);
+router.get('/contacts', authMiddleware, userController.getContacts);
+router.get('/block-list', authMiddleware, userController.getBlockedUsers);
+
+// ✅ Updates
 router.put('/profile', authMiddleware, userController.updateProfile);
 router.put('/password', authMiddleware, userController.updatePassword);
-router.get('/search', authMiddleware, userController.searchUsers);
+
+// ✅ Contact management
 router.post('/contacts', authMiddleware, userController.addContact);
 router.delete('/contacts/:userId', authMiddleware, userController.removeContact);
-router.get('/contacts', authMiddleware, userController.getContacts);
+
+// ✅ Blocking
 router.post('/block/:userId', authMiddleware, userController.blockUser);
 router.post('/unblock/:userId', authMiddleware, userController.unblockUser);
-router.get('/block-list', authMiddleware, userController.getBlockedUsers);
+
+// ✅ Dynamic route LAST
+router.get('/:userId', authMiddleware, userController.getUserById);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { HiDotsVertical, HiCheck, HiCheckCircle, HiTrash, HiPencil, HiDownload, HiExternalLink } from 'react-icons/hi';
 import { motion } from 'framer-motion';
@@ -23,7 +23,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
   
   // Toggle message options
   const toggleOptions = () => {
-    setShowOptions(!showOptions);
+    setShowOptions((prev) => !prev);
   };
   
   // Close options when clicking elsewhere
@@ -87,7 +87,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
   const messageUrls = message.type === 'text' ? extractUrls(message.content) : [];
   
   // Set up click outside listener
-  React.useEffect(() => {
+  useEffect(() => {
     if (showOptions) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
@@ -100,9 +100,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
   }, [showOptions]);
   
   // Message container classes
-  const messageContainerClasses = isOwnMessage
-    ? 'flex justify-end'
-    : 'flex justify-start';
+  const messageContainerClasses = isOwnMessage ? 'flex justify-end' : 'flex justify-start';
   
   // Message bubble classes
   const messageBubbleClasses = isOwnMessage
@@ -166,8 +164,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
           {message.type === 'text' && !isEditing && (
             <div>
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
-              
-              {/* Link previews */}
+               {/* Link previews */}
               {messageUrls.length > 0 && (
                 <div className="mt-2 space-y-2">
                   {messageUrls.map((url, index) => (
@@ -224,8 +221,8 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
               {formatTime(message.createdAt)}
             </span>
             
-           {/* Read receipt for own messages */}
-           {isOwnMessage && (
+            {/* Read receipt for own messages */}
+            {isOwnMessage && (
               message.read ? (
                 <span className="text-blue-400" title="Read">
                   <HiCheckCircle className="w-4 h-4" />
@@ -244,6 +241,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
           <button
             onClick={toggleOptions}
             className="absolute top-0 left-0 transform -translate-x-full p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="More options"
           >
             <HiDotsVertical className="w-4 h-4" />
           </button>
@@ -259,6 +257,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
               <button
                 onClick={handleEdit}
                 className="flex items-center w-full px-4 py-2 text-sm text-left hover:bg-gray-100"
+                aria-label="Edit message"
               >
                 <HiPencil className="w-4 h-4 mr-2" />
                 Edit
@@ -267,6 +266,7 @@ const MessageItem = ({ message, isOwnMessage, otherUser }) => {
             <button
               onClick={handleDelete}
               className="flex items-center w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-100"
+              aria-label="Delete message"
             >
               <HiTrash className="w-4 h-4 mr-2" />
               Delete

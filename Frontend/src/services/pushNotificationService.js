@@ -1,6 +1,5 @@
-// client/src/services/pushNotificationService.js
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, setBackgroundMessageHandler } from 'firebase/messaging';
 import api from './api';
 
 // Firebase configuration
@@ -25,6 +24,11 @@ export const requestNotificationPermission = async () => {
       console.log('This browser does not support push notifications');
       return false;
     }
+
+    // Check if notification permission has already been granted
+    if (Notification.permission === 'granted') {
+      return true;  // Permission already granted
+    }
     
     // Request permission
     const permission = await Notification.requestPermission();
@@ -33,14 +37,14 @@ export const requestNotificationPermission = async () => {
       console.log('Notification permission denied');
       return false;
     }
-    
+
     // Get FCM token
     const currentToken = await getToken(messaging, {
       vapidKey: process.env.REACT_APP_FIREBASE_VAPID_KEY
     });
-    
+
     if (currentToken) {
-      // Send token to server
+      // Send token to server (check if token exists in storage before registering)
       await registerDeviceToken(currentToken);
       return true;
     } else {
@@ -56,8 +60,15 @@ export const requestNotificationPermission = async () => {
 // Register device token with server
 const registerDeviceToken = async (token) => {
   try {
+    // Avoid registering the same token multiple times
+    const storedToken = localStorage.getItem('fcmToken');
+    if (storedToken === token) {
+      return; // Token already registered
+    }
+
     await api.post('/users/fcm-token', { token });
     console.log('FCM token registered successfully');
+    localStorage.setItem('fcmToken', token);  // Store the token locally
   } catch (error) {
     console.error('Error registering FCM token:', error);
   }
@@ -67,7 +78,7 @@ const registerDeviceToken = async (token) => {
 export const setupForegroundNotifications = (callback) => {
   return onMessage(messaging, (payload) => {
     console.log('Message received in the foreground:', payload);
-    
+
     // Create notification options
     const options = {
       body: payload.notification.body,
@@ -75,16 +86,16 @@ export const setupForegroundNotifications = (callback) => {
       badge: '/badge-icon.png',
       data: payload.data
     };
-    
+
     // Show notification
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification(payload.notification.title, options);
-      
+
       // Handle notification click
       notification.onclick = () => {
         notification.close();
         window.focus();
-        
+
         if (callback) {
           callback(payload.data);
         }
@@ -93,7 +104,27 @@ export const setupForegroundNotifications = (callback) => {
   });
 };
 
+// Handle background messages
+export const setupBackgroundNotifications = () => {
+  setBackgroundMessageHandler(messaging, (payload) => {
+    console.log('Message received in the background:', payload);
+
+    const options = {
+      body: payload.notification.body,
+      icon: '/logo192.png',
+      badge: '/badge-icon.png',
+      data: payload.data
+    };
+
+    // Display background notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      self.registration.showNotification(payload.notification.title, options);
+    }
+  });
+};
+
 export default {
   requestNotificationPermission,
-  setupForegroundNotifications
+  setupForegroundNotifications,
+  setupBackgroundNotifications
 };

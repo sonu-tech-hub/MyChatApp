@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { HiX, HiArrowLeft } from 'react-icons/hi';
+import { HiArrowLeft } from 'react-icons/hi';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Avatar from '../common/Avatar';
 import SearchInput from '../common/SearchInput';
@@ -13,7 +13,7 @@ const UserSearch = ({ onClose }) => {
   const [error, setError] = useState(null);
   
   const navigate = useNavigate();
-  
+
   // Search for users when searchTerm changes
   useEffect(() => {
     const searchUsers = async () => {
@@ -38,10 +38,10 @@ const UserSearch = ({ onClose }) => {
     
     // Debounce search to avoid too many requests
     const timeoutId = setTimeout(searchUsers, 300);
-    
+
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
-  
+
   // Handle input change
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);

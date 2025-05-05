@@ -29,10 +29,9 @@ export const CallProvider = ({ children }) => {
   
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
-  
+
   // Initialize call service
   useEffect(() => {
-    // Setup call service with event handlers
     callService.initialize({
       onIncomingCall: handleIncomingCall,
       onCallConnected: handleCallConnected,
@@ -42,16 +41,18 @@ export const CallProvider = ({ children }) => {
       onCallDisconnected: handleCallDisconnected,
       onRemoteStream: handleRemoteStream
     });
-    
-    // Cleanup on unmount
+
     return () => {
       callService.cleanup();
+      // Cleanup local stream when component is unmounted
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [user]);
-  
+  }, [user, localStream]);
+
   // Handle incoming call
   const handleIncomingCall = (callId, callerId, callerName, callerPhoto, callType) => {
-    // Update call state
     setCallState({
       isActive: true,
       status: 'incoming',
@@ -65,8 +66,8 @@ export const CallProvider = ({ children }) => {
       isVideoMuted: false,
       isSpeakerOn: true
     });
-    
-    // Show notification
+
+    // Show toast notification
     toast((t) => (
       <div>
         <p>Incoming {callType} call from {callerName}</p>
@@ -91,49 +92,47 @@ export const CallProvider = ({ children }) => {
           </button>
         </div>
       </div>
-    ), {
-      duration: 30000,
-    });
+    ), { duration: 30000 });
   };
-  
+
   // Handle call connected
-  const handleCallConnected = (callId, userId) => {
+  const handleCallConnected = (callId) => {
     setCallState(prev => ({
       ...prev,
       status: 'connected',
       callId
     }));
   };
-  
+
   // Handle call rejected
-  const handleCallRejected = (callId, userId) => {
+  const handleCallRejected = () => {
     toast.error('Call was rejected');
     resetCallState();
   };
-  
+
   // Handle call ended
-  const handleCallEnded = (callId, userId) => {
+  const handleCallEnded = () => {
     toast.info('Call ended');
     resetCallState();
   };
-  
+
   // Handle call unavailable
-  const handleCallUnavailable = (callId, userId, reason) => {
-    toast.error(`Call unavailable: ${reason || 'User is offline'}`);
+  const handleCallUnavailable = (reason = 'User is offline') => {
+    toast.error(`Call unavailable: ${reason}`);
     resetCallState();
   };
-  
+
   // Handle call disconnected (connection lost)
-  const handleCallDisconnected = (callId, userId) => {
+  const handleCallDisconnected = () => {
     toast.error('Call disconnected');
     resetCallState();
   };
-  
-  // Handle remote stream
-  const handleRemoteStream = (userId, stream) => {
+
+  // Handle remote stream (video/audio stream)
+  const handleRemoteStream = (stream) => {
     setRemoteStream(stream);
   };
-  
+
   // Initiate a call
   const initiateCall = async (recipientId, recipientName, callType = 'audio') => {
     try {
@@ -143,13 +142,12 @@ export const CallProvider = ({ children }) => {
         type: callType,
         recipientId,
         recipientName,
-        // recipientPhoto will be updated when available
         isOutgoing: true,
         isAudioMuted: false,
         isVideoMuted: false,
         isSpeakerOn: true
       });
-      
+
       const stream = await callService.startCall(recipientId, callType);
       setLocalStream(stream);
     } catch (error) {
@@ -158,7 +156,7 @@ export const CallProvider = ({ children }) => {
       resetCallState();
     }
   };
-  
+
   // Answer incoming call
   const answerCall = async (accept = true) => {
     try {
@@ -175,7 +173,7 @@ export const CallProvider = ({ children }) => {
       resetCallState();
     }
   };
-  
+
   // End current call
   const endCall = () => {
     if (callState.isActive) {
@@ -184,40 +182,39 @@ export const CallProvider = ({ children }) => {
       resetCallState();
     }
   };
-  
+
   // Toggle audio mute
   const toggleAudio = () => {
     const newMuteState = !callState.isAudioMuted;
     const enabled = callService.toggleAudio(newMuteState);
-    
+
     setCallState(prev => ({
       ...prev,
       isAudioMuted: !enabled
     }));
   };
-  
+
   // Toggle video mute
   const toggleVideo = () => {
     const newMuteState = !callState.isVideoMuted;
     const enabled = callService.toggleVideo(newMuteState);
-    
+
     setCallState(prev => ({
       ...prev,
       isVideoMuted: !enabled
     }));
   };
-  
+
   // Toggle speaker
   const toggleSpeaker = () => {
     setCallState(prev => ({
       ...prev,
       isSpeakerOn: !prev.isSpeakerOn
     }));
-    
-    // Actual implementation depends on web audio API capabilities
-    // This might require device-specific handling
+
+    // Actual speaker toggling logic might involve manipulating the audio output device
   };
-  
+
   // Switch camera (for mobile)
   const switchCamera = async () => {
     try {
@@ -228,18 +225,16 @@ export const CallProvider = ({ children }) => {
       toast.error('Failed to switch camera');
     }
   };
-  
-  // Reset call state
+
+  // Reset call state and stop all streams
   const resetCallState = () => {
-    // Stop all streams
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
       setLocalStream(null);
     }
-    
+
     setRemoteStream(null);
     
-    // Reset state
     setCallState({
       isActive: false,
       status: null,
@@ -257,7 +252,7 @@ export const CallProvider = ({ children }) => {
       isSpeakerOn: true
     });
   };
-  
+
   return (
     <CallContext.Provider
       value={{
@@ -274,7 +269,7 @@ export const CallProvider = ({ children }) => {
       }}
     >
       {children}
-      {callState.isActive && <CallUI />}
+      {callState.isActive && <CallUI />} {/* CallUI component should be implemented */}
     </CallContext.Provider>
   );
 };

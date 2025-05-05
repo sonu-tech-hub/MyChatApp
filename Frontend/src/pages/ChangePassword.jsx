@@ -13,12 +13,19 @@ const ChangePassword = () => {
     confirmPassword: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   
   const navigate = useNavigate();
   
   const handleChange = (e) => {
     const { name, value } = e.target;
     setPasswords(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const validatePassword = (newPassword) => {
+    // Basic password validation pattern (customize as needed)
+    const passwordPattern = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordPattern.test(newPassword);
   };
   
   const handleSubmit = async (e) => {
@@ -40,9 +47,15 @@ const ChangePassword = () => {
       return;
     }
     
+    if (!validatePassword(passwords.newPassword)) {
+      setPasswordError('Password must include at least one uppercase letter, one number, and one special character.');
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      
+      setPasswordError(''); // Reset any previous errors
+
       await api.put('/users/password', {
         currentPassword: passwords.currentPassword,
         newPassword: passwords.newPassword
@@ -100,6 +113,9 @@ const ChangePassword = () => {
               placeholder="Enter your new password"
               required
             />
+            {passwordError && (
+              <p className="text-xs text-red-500 mt-1">{passwordError}</p>
+            )}
           </div>
           
           <div>
@@ -121,9 +137,7 @@ const ChangePassword = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full flex justify-center items-center px-4 py-2 bg-primary text-black rounded-md shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-                isLoading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
+              className={`w-full flex justify-center items-center px-4 py-2 bg-primary text-black rounded-md shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
                 <>

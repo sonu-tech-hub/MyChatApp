@@ -5,10 +5,10 @@ const { authMiddleware } = require('../middlewares/authMiddleware');
 const uploadMiddleware = require('../middlewares/uploadMiddleware');
 
 // Protected routes
-router.post('/upload', authMiddleware, uploadMiddleware.single('file'), fileController.uploadFile);
-router.get('/:fileId/metadata', authMiddleware, fileController.getFileMetadata);
-router.get('/:fileId/download', authMiddleware, fileController.downloadFile);
-router.get('/:fileId/preview', authMiddleware, fileController.previewFile);
-router.delete('/:fileId', authMiddleware, fileController.deleteFile);
+router.post('/upload', authMiddleware, uploadMiddleware.single('file'), fileController.uploadFile); // Upload file
+router.get('/:fileId/metadata', authMiddleware, fileController.getFileMetadata); // Get file metadata
+router.get('/:fileId/download', authMiddleware, fileController.downloadFile); // Download file
+router.get('/:fileId/preview', authMiddleware, fileController.previewFile); // Preview file
+router.delete('/:fileId', authMiddleware, fileController.deleteFile); // Delete file
 
 module.exports = router;

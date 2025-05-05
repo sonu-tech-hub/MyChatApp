@@ -9,10 +9,19 @@ const MessageInput = ({ onSendMessage, onFileUpload, receiverId }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [typingTimeout, setTypingTimeout] = useState(null);
+  const [fileError, setFileError] = useState(null);
   
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ACCEPTED_FILE_TYPES = [
+    'image/jpeg', 'image/png', 'image/gif',
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'video/mp4', 'video/webm', 'video/ogg'
+  ];
+
   // Handle textarea input
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -77,6 +86,22 @@ const MessageInput = ({ onSendMessage, onFileUpload, receiverId }) => {
     const file = e.target.files[0];
     if (!file) return;
     
+    // Validate file type and size
+    if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
+      setFileError('Unsupported file type');
+      setSelectedFile(null);
+      setFilePreviewUrl(null);
+      return;
+    }
+    
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError('File size exceeds 5MB');
+      setSelectedFile(null);
+      setFilePreviewUrl(null);
+      return;
+    }
+    
+    setFileError(null);
     setSelectedFile(file);
     
     // Create file preview
@@ -179,7 +204,14 @@ const MessageInput = ({ onSendMessage, onFileUpload, receiverId }) => {
           </div>
         </div>
       )}
-      
+
+      {/* File error message */}
+      {fileError && (
+        <div className="text-red-500 text-sm px-3 mb-2">
+          {fileError}
+        </div>
+      )}
+
       {/* Message input area */}
       <div className="flex items-end space-x-2">
         <div className="flex-shrink-0 flex space-x-1">
@@ -187,6 +219,7 @@ const MessageInput = ({ onSendMessage, onFileUpload, receiverId }) => {
             className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
             onClick={handleFileButtonClick}
             title="Attach file"
+            aria-label="Attach file"
           >
             <HiPaperClip className="w-5 h-5" />
           </button>
@@ -196,12 +229,14 @@ const MessageInput = ({ onSendMessage, onFileUpload, receiverId }) => {
             onChange={handleFileChange}
             className="hidden"
             accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/*"
+            aria-label="Choose a file"
           />
           
           <button 
             className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
             onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
             title="Emoji"
+            aria-label="Toggle emoji picker"
           >
             <HiEmojiHappy className="w-5 h-5" />
           </button>
@@ -223,15 +258,15 @@ const MessageInput = ({ onSendMessage, onFileUpload, receiverId }) => {
             placeholder="Type a message..."
             className="w-full bg-gray-100 border border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
             rows="1"
+            aria-label="Type a message"
           />
         </div>
         
         <button
-          className={`p-2 rounded-full bg-primary text-white ${
-            !message.trim() && !selectedFile ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-dark'
-          }`}
+          className={`p-2 rounded-full bg-primary text-white ${!message.trim() && !selectedFile ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-dark'}`}
           onClick={handleSendMessage}
           disabled={!message.trim() && !selectedFile}
+          aria-label="Send message"
         >
           <HiPaperAirplane className="w-5 h-5 transform rotate-90" />
         </button>

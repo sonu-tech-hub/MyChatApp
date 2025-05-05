@@ -8,6 +8,7 @@ const Login = () => {
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(''); // State to hold error message
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -15,11 +16,15 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Basic validation to ensure fields are not empty
     if (!emailOrPhone || !password) {
       toast.error('Please fill in all fields');
       return;
     }
-    
+
+    // Clear any previous error messages
+    setErrorMessage('');
+
     try {
       setIsLoading(true);
       const response = await login(emailOrPhone, password);
@@ -38,6 +43,7 @@ const Login = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      setErrorMessage('Invalid email or password'); // Display error message
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +91,10 @@ const Login = () => {
             </div>
           </div>
           
+          {errorMessage && (
+            <div className="text-red-500 text-sm text-center">{errorMessage}</div>
+          )}
+
           <div>
             <button
               type="submit"

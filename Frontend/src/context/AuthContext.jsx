@@ -29,14 +29,14 @@ export const AuthProvider = ({ children }) => {
             try {
               const response = await api.post('/auth/refresh-token', { refreshToken });
               const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
-              
+
               // Update tokens
               setAccessToken(newAccessToken);
               setRefreshToken(newRefreshToken);
               localStorage.setItem('accessToken', newAccessToken);
               localStorage.setItem('refreshToken', newRefreshToken);
               setAuthToken(newAccessToken);
-              
+
               // Fetch user data with new token
               const { data } = await api.get('/users/me');
               setUser(data.user);
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
-  }, []);
+  }, [accessToken, refreshToken]);
 
   // Register a new user
   const register = async (userData) => {
@@ -75,17 +75,17 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(true);
     try {
       const { data } = await api.post('/auth/verify', { userId, otp });
-      
+
       // Set auth tokens
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
       setAuthToken(data.accessToken);
-      
+
       // Set user data
       setUser(data.user);
-      
+
       toast.success('Account verified successfully!');
       return data;
     } catch (error) {
@@ -101,22 +101,22 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(true);
     try {
       const { data } = await api.post('/auth/login', { emailOrPhone, password });
-      
+
       // If account requires verification
       if (data.requiresVerification) {
         return data;
       }
-      
+
       // Set auth tokens
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
       setAuthToken(data.accessToken);
-      
+
       // Set user data
       setUser(data.user);
-      
+
       toast.success('Login successful!');
       return data;
     } catch (error) {
@@ -130,19 +130,17 @@ export const AuthProvider = ({ children }) => {
   // Refresh access token
   const refreshAuthToken = async () => {
     if (!refreshToken) return false;
-    
+
     try {
-      const { data } = await axios.post(`${API_URL}/auth/refresh-token`, {
-        refreshToken
-      });
-      
+      const { data } = await axios.post('/auth/refresh-token', { refreshToken });
+
       // Set new tokens in state and localStorage
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
       setAuthToken(data.accessToken);
-      
+
       return true;
     } catch (error) {
       console.error('Token refresh failed:', error);

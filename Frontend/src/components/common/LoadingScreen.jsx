@@ -2,11 +2,11 @@
 import React from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
-const LoadingScreen = () => {
+const LoadingScreen = ({ message = 'Loading...', spinnerSize = 'xl', messageColor = 'text-gray-600' }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-      <LoadingSpinner size="xl" />
-      <p className="mt-4 text-gray-600">Loading...</p>
+      <LoadingSpinner size={spinnerSize} />
+      <p className={`mt-4 ${messageColor}`}>{message}</p>
     </div>
   );
 };

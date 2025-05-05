@@ -20,6 +20,7 @@ const CreateGroupModal = ({ onClose }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -40,16 +41,18 @@ const CreateGroupModal = ({ onClose }) => {
       const file = e.target.files[0];
       
       if (file.type.startsWith('image/')) {
+        setIsUploadingAvatar(true);
         setAvatar(file);
         
         // Create preview
         const reader = new FileReader();
         reader.onload = (event) => {
           setAvatarPreview(event.target.result);
+          setIsUploadingAvatar(false);
         };
         reader.readAsDataURL(file);
       } else {
-        toast.error('Please select an image file');
+        toast.error('Please select a valid image file');
       }
     }
   };
@@ -103,6 +106,11 @@ const CreateGroupModal = ({ onClose }) => {
       return;
     }
     
+    if (groupData.name.length < 3) {
+      toast.error('Group name must be at least 3 characters long');
+      return;
+    }
+    
     setStep(2);
   };
   
@@ -149,15 +157,16 @@ const CreateGroupModal = ({ onClose }) => {
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md" role="dialog" aria-labelledby="create-group-modal-title" aria-hidden="false">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold" id="create-group-modal-title">
             {step === 1 ? 'Create New Group' : 'Add Group Members'}
           </h2>
           <button 
             onClick={onClose}
             className="p-1 rounded-full hover:bg-gray-100"
+            aria-label="Close"
           >
             <HiX className="w-6 h-6 text-gray-500" />
           </button>
@@ -173,9 +182,8 @@ const CreateGroupModal = ({ onClose }) => {
                 <div className="relative">
                   <div 
                     onClick={handleAvatarClick}
-                    className={`w-24 h-24 rounded-full overflow-hidden flex items-center justify-center cursor-pointer ${
-                      avatarPreview ? '' : 'bg-gray-200'
-                    }`}
+                    className={`w-24 h-24 rounded-full overflow-hidden flex items-center justify-center cursor-pointer ${avatarPreview ? '' : 'bg-gray-200'}`}
+                    aria-label="Select group avatar"
                   >
                     {avatarPreview ? (
                       <img 
@@ -191,6 +199,7 @@ const CreateGroupModal = ({ onClose }) => {
                     type="button"
                     className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full shadow-lg"
                     onClick={handleAvatarClick}
+                    aria-label="Change avatar"
                   >
                     <HiCamera className="w-5 h-5" />
                   </button>
@@ -200,6 +209,7 @@ const CreateGroupModal = ({ onClose }) => {
                     onChange={handleAvatarChange}
                     className="hidden"
                     accept="image/*"
+                    aria-label="Choose avatar image"
                   />
                 </div>
               </div>
@@ -270,6 +280,7 @@ const CreateGroupModal = ({ onClose }) => {
                         <button
                           onClick={() => handleAddMember(user)}
                           className="p-1 rounded-full hover:bg-gray-200"
+                          aria-label={`Add ${user.name} to group`}
                         >
                           <HiPlus className="w-5 h-5 text-primary" />
                         </button>
@@ -303,6 +314,7 @@ const CreateGroupModal = ({ onClose }) => {
                           <button
                             onClick={() => handleRemoveMember(member._id)}
                             className="p-1 rounded-full hover:bg-gray-200"
+                            aria-label={`Remove ${member.name} from group`}
                           >
                             <HiX className="w-4 h-4 text-gray-500" />
                           </button>
@@ -327,12 +339,14 @@ const CreateGroupModal = ({ onClose }) => {
               <button
                 onClick={onClose}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                aria-label="Cancel"
               >
                 Cancel
               </button>
               <button
                 onClick={handleNextStep}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary-dark"
+                aria-label="Next"
               >
                 Next
               </button>
@@ -342,15 +356,15 @@ const CreateGroupModal = ({ onClose }) => {
               <button
                 onClick={() => setStep(1)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                aria-label="Back"
               >
                 Back
               </button>
               <button
                 onClick={handleCreateGroup}
                 disabled={isLoading}
-                className={`px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark flex items-center ${
-                  isLoading ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                className={`px-4 py-2 bg-primary text-black rounded-md hover:bg-primary-dark flex items-center ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                aria-label="Create Group"
               >
                 {isLoading ? (
                   <>

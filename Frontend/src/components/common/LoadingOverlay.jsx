@@ -7,15 +7,18 @@ const LoadingOverlay = ({
   children, 
   message = 'Loading...', 
   fullScreen = false,
-  overlay = true
+  overlay = true,
+  overlayColor = 'bg-white bg-opacity-75',  // Customizable overlay color
+  spinnerSize = 'md', // Customizable spinner size
+  textColor = 'text-gray-600'  // Customizable text color
 }) => {
   if (!loading) return children;
   
   if (fullScreen) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 z-50">
-        <LoadingSpinner size="lg" />
-        <p className="mt-4 text-gray-600">{message}</p>
+        <LoadingSpinner size={spinnerSize} />
+        <p className={`mt-4 ${textColor}`}>{message}</p>
       </div>
     );
   }
@@ -25,9 +28,9 @@ const LoadingOverlay = ({
       {children}
       
       {overlay && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-75 z-10">
-          <LoadingSpinner size="md" />
-          <p className="mt-2 text-sm text-gray-600">{message}</p>
+        <div className={`absolute inset-0 flex flex-col items-center justify-center ${overlayColor} z-10`}>
+          <LoadingSpinner size={spinnerSize} />
+          <p className={`mt-2 text-sm ${textColor}`}>{message}</p>
         </div>
       )}
     </div>

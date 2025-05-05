@@ -9,6 +9,10 @@ exports.getUserChats = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
     // Find all chats where the user is either user1 or user2
     const chats = await Chat.find({
       $or: [{ user1: userId }, { user2: userId }]
@@ -23,6 +27,7 @@ exports.getUserChats = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // Get all messages in a one-on-one chat
 exports.getChatMessages = async (req, res) => {
@@ -83,11 +88,10 @@ exports.getChatMessages = async (req, res) => {
         .map(msg => msg._id);
 
       if (unreadMessageIds.length > 0) {
-        Message.updateMany(
+        await Message.updateMany(
           { _id: { $in: unreadMessageIds } },
           { $set: { read: true, readAt: new Date() } }
-        ).exec();
-
+        );
         chat.markAsRead(req.user.id);
       }
     }
@@ -140,7 +144,7 @@ exports.getLinkPreview = async (req, res) => {
   try {
     const { url } = req.body;
 
-    if (!url || !url.startsWith('http')) {
+    if (!url || !/^https?:\/\//.test(url)) {
       return res.status(400).json({ message: 'Invalid URL provided' });
     }
 

@@ -2,9 +2,9 @@
 import { toast } from 'react-hot-toast'; // Import toast for notifications
 
 export function register(config) {
-    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+    if (import.meta.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+            const swUrl = `${import.meta.env.PUBLIC_URL}/service-worker.js`;
 
             navigator.serviceWorker
                 .register(swUrl)

@@ -1,9 +1,14 @@
 // client/src/pages/NotFound.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { HiChat, HiArrowLeft } from 'react-icons/hi';
 
 const NotFound = () => {
+  useEffect(() => {
+    // Log the 404 error page URL to console or send it to a logging service
+    console.error(`404 error: The page ${window.location.pathname} was not found.`);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="text-center">

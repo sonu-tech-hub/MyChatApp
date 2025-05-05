@@ -42,13 +42,13 @@ if (!authController.sendOTP) {
 }
 
 // Public routes
-router.post('/register', authController.register);
-router.post('/verify', authController.verifyAccount);
-router.post('/login', authController.login);
+router.post('/register',  authController.register);
+router.post('/verify',  authController.verifyAccount);
+router.post('/login',  authController.login);
 router.post('/refresh-token', authController.refreshToken);
 
 // Protected routes
-router.post('/logout', authController.logout);
-router.post('/send-otp', authController.sendOTP);
+router.post('/logout',   authMiddleware, authController.logout);
+router.post('/send-otp', authMiddleware, authController.sendOTP);
 
 module.exports = router;

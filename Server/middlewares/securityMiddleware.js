@@ -1,37 +1,72 @@
-// server/middlewares/securityMiddleware.js
-const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const RedisStore = require('rate-limit-redis');
+const Redis = require('ioredis');
 
-exports.setupSecurityHeaders = (app) => {
-  // Use Helmet for general security headers
-  app.use(helmet());
-  
-  // Custom CSP policy
-  app.use(
-    helmet.contentSecurityPolicy({
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://storage.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        connectSrc: ["'self'", 'https://api.example.com', 'wss://socket.example.com'],
-        mediaSrc: ["'self'", 'blob:'],
-        objectSrc: ["'none'"],
-        frameSrc: ["'self'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-        upgradeInsecureRequests: []
-      }
-    })
-  );
-  
-  // Additional security headers
-  app.use(helmet.xssFilter());
-  app.use(helmet.noSniff());
-  app.use(helmet.frameguard({ action: 'deny' }));
-  app.use(helmet.hsts({
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true
-  }));
+// Optionally use Redis for distributed rate limiting in production
+let redisClient;
+if (process.env.NODE_ENV === 'production' && process.env.REDIS_URL) {
+  try {
+    // Setup Redis client with potential environment-specific configurations
+    redisClient = new Redis({
+      host: process.env.REDIS_HOST || 'localhost', // Default Redis host if not provided
+      port: process.env.REDIS_PORT || 6379,        // Default Redis port if not provided
+      password: process.env.REDIS_PASSWORD || '',  // Use password if configured
+      db: process.env.REDIS_DB || 0,               // Default Redis DB index
+      tls: process.env.REDIS_TLS === 'true' ? {} : undefined // Use TLS if configured
+    });
+    console.log('Connected to Redis for rate limiting');
+  } catch (error) {
+    console.error('Error connecting to Redis:', error.message);
+    redisClient = null; // Fallback to in-memory store if Redis is unavailable
+  }
+}
+
+// Centralized rate limit configuration for easier maintenance
+const createLimiter = (windowMs, max, message) => {
+  const config = {
+    windowMs,
+    max,
+    message: { message },
+    standardHeaders: true,
+    legacyHeaders: false,
+  };
+
+  // Use Redis store in production if available
+  if (redisClient) {
+    config.store = new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+    });
+  }
+
+  return rateLimit(config);
 };
+
+// General API rate limiter
+exports.apiLimiter = createLimiter(
+  15 * 60 * 1000, // 15 minutes
+  100, // 100 requests per windowMs
+  'Too many requests, please try again later.'
+);
+
+// Auth endpoint rate limiter (more strict)
+exports.authLimiter = createLimiter(
+  60 * 60 * 1000, // 1 hour
+  5, // 5 failed attempts per hour
+  'Too many login attempts, please try again later.'
+);
+
+// OTP request limiter
+exports.otpLimiter = createLimiter(
+  60 * 60 * 1000, // 1 hour
+  3, // 3 OTP requests per hour
+  'Too many verification code requests, please try again later.'
+);
+
+// Fallback for when Redis is unavailable
+exports.fallbackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per windowMs
+  message: { message: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

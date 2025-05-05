@@ -82,6 +82,7 @@ const MessageAttachment = ({ attachment }) => {
           alt={attachment.name || 'Image attachment'}
           className={`rounded-lg max-h-64 max-w-full object-contain ${isImageLoaded ? 'block' : 'hidden'}`}
           onLoad={handleImageLoad}
+          loading="lazy"
         />
         {!isImageLoaded && (
           <div className="bg-gray-200 rounded-lg h-24 w-48 animate-pulse flex items-center justify-center">

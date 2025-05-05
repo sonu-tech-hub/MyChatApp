@@ -21,8 +21,8 @@ const storage = multer.diskStorage({
     cb(null, userDir);
   },
   filename: function(req, file, cb) {
-    // Generate unique filename
-    const uniqueFilename = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
+    // Generate unique filename using UUID and random string for even more uniqueness
+    const uniqueFilename = `${uuidv4()}-${Date.now()}-${Math.random().toString(36).substring(2)}${path.extname(file.originalname)}`;
     cb(null, uniqueFilename);
   }
 });
@@ -50,7 +50,8 @@ const fileFilter = (req, file, cb) => {
     'video/webm',
     'video/quicktime'
   ];
-  
+
+  // Check if file mimetype is allowed
   if (allowedFileTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -59,32 +60,32 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Configure multer
-// server/middlewares/uploadMiddleware.js (continued)
 const upload = multer({
-    storage,
-    fileFilter,
-    limits: {
-      fileSize: 25 * 1024 * 1024 // 25MB max file size
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024 // 25MB max file size
+  }
+});
+
+// Handle multer errors
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    // Specific error for file size limit
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'File too large. Maximum size is 25MB.' });
     }
-  });
-  
-  // Handle multer errors
-  const handleMulterError = (err, req, res, next) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'File too large. Maximum size is 25MB.' });
-      }
-      return res.status(400).json({ message: err.message });
-    } else if (err) {
-      return res.status(400).json({ message: err.message });
-    }
-    next();
-  };
-  
-  // Export both the multer middleware and error handler
-  module.exports = {
-    single: (fieldName) => [upload.single(fieldName), handleMulterError],
-    array: (fieldName, maxCount) => [upload.array(fieldName, maxCount), handleMulterError],
-    fields: (fields) => [upload.fields(fields), handleMulterError],
-    handleMulterError
-  };
+    return res.status(400).json({ message: `Multer Error: ${err.message}` });
+  } else if (err) {
+    return res.status(400).json({ message: err.message });
+  }
+  next();
+};
+
+// Export both the multer middleware and error handler
+module.exports = {
+  single: (fieldName) => [upload.single(fieldName), handleMulterError],
+  array: (fieldName, maxCount) => [upload.array(fieldName, maxCount), handleMulterError],
+  fields: (fields) => [upload.fields(fields), handleMulterError],
+  handleMulterError
+};

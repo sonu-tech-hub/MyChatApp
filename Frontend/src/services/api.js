@@ -2,78 +2,91 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-
-// Create an axios instance
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
-// Set auth token in axios headers
+// ===== Auth Token Utilities =====
+
 export const setAuthToken = (token) => {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('accessToken', token);
+    try {
+      localStorage.setItem('accessToken', token);
+    } catch (e) {
+      console.error('Failed to store access token:', e);
+    }
   } else {
     delete api.defaults.headers.common['Authorization'];
-    localStorage.removeItem('accessToken');
+    try {
+      localStorage.removeItem('accessToken');
+    } catch (e) {
+      console.error('Failed to remove access token:', e);
+    }
   }
 };
 
-// Remove auth token
 export const removeAuthToken = () => {
   delete api.defaults.headers.common['Authorization'];
-  localStorage.removeItem('accessToken');
+  try {
+    localStorage.removeItem('accessToken');
+  } catch (e) {
+    console.error('Failed to remove access token:', e);
+  }
 };
 
-// Get the current auth token
 export const getAuthToken = () => {
-  return localStorage.getItem('accessToken');
+  try {
+    return localStorage.getItem('accessToken');
+  } catch (e) {
+    console.error('Failed to get access token:', e);
+    return null;
+  }
 };
 
-// Add a request interceptor for token refresh
+// ===== Axios Interceptor for Token Refresh =====
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
-    // If the error is 401 (Unauthorized) and we haven't tried to refresh the token yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    const isAuthError = error.response?.status === 401;
+    const isNotRetrying = !originalRequest._retry;
+    const isNotRefreshing = !originalRequest.url.includes('/auth/refresh-token');
+
+    if (isAuthError && isNotRetrying && isNotRefreshing) {
       originalRequest._retry = true;
-      
+
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-        
-        // Attempt to refresh the token
-        const { data } = await axios.post(`${API_URL}/auth/refresh-token`, {
-          refreshToken
-        });
-        
-        // Update tokens
+        if (!refreshToken) throw new Error('No refresh token found');
+
+        const { data } = await api.post('/auth/refresh-token', { refreshToken });
+
+        // Update token storage and retry original request
         setAuthToken(data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
-        
-        // Retry the original request with the new token
+
         originalRequest.headers['Authorization'] = `Bearer ${data.accessToken}`;
-        return axios(originalRequest);
+        return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, redirect to login
+        console.error('Token refresh failed:', refreshError);
         removeAuthToken();
-        localStorage.removeItem('refreshToken');
-        
-        // Dispatch a logout event that the auth context can listen for
+        try {
+          localStorage.removeItem('refreshToken');
+        } catch (e) {
+          console.error('Failed to remove refresh token:', e);
+        }
+
         window.dispatchEvent(new CustomEvent('auth:logout'));
-        
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );

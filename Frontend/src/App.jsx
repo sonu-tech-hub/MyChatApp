@@ -6,6 +6,8 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { CallProvider } from "./context/CallContext";
 import LoadingScreen from "./components/common/LoadingScreen";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import { initializeSocket, disconnectSocket } from "./services/socketService"; // Import
+
 const AppLayout = lazy(() => import("./components/layout/AppLayout"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -18,13 +20,11 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivateRoute = lazy(() => import("./components/common/PrivateRoute"));
 const PublicRoute = lazy(() => import("./components/common/PublicRoute"));
-import { initializeSocket, disconnectSocket } from "./services/socketService"; // Import
 
 const App = () => {
-  const { user, isLoading } = useAuth(); // Get isLoading from AuthContext
+  const { user, isLoading } = useAuth();
   const [socketInitialized, setSocketInitialized] = useState(false);
   const [socketError, setSocketError] = useState(null);
-  console.log("User in App:", user); // Debugging line
 
   // Define socket URL here, use a constant
   const SOCKET_URL =
@@ -33,35 +33,30 @@ const App = () => {
   useEffect(() => {
     const initSocket = async () => {
       if (user) {
-        // Only initialize if logged in
         try {
-          await initializeSocket(SOCKET_URL); // Pass the URL
+          await initializeSocket(SOCKET_URL);
           setSocketInitialized(true);
         } catch (error) {
           setSocketError(error);
-          console.error("Failed to initialize socket:", error);
-          toast.error("Failed to connect to chat service."); // Inform the user
+          toast.error("Failed to connect to chat service.");
         }
       } else {
         setSocketInitialized(false);
       }
     };
 
-    if (!isLoading) { // Only init socket if not loading
+    if (!isLoading) {
       initSocket();
     }
 
-
-    // Cleanup: Disconnect socket when user logs out or component unmounts
     return () => {
       disconnectSocket();
       setSocketInitialized(false);
     };
-  }, [user, SOCKET_URL, isLoading]); // Depend on user, SOCKET_URL and isLoading
+  }, [user, SOCKET_URL, isLoading]);
 
-  // Render different things based on socket state and auth loading
   if (isLoading) {
-    return <LoadingScreen />; // Show loading screen while auth state is being determined
+    return <LoadingScreen />;
   }
 
   if (socketError) {
@@ -69,7 +64,6 @@ const App = () => {
       <div>
         <h1>Connection Error</h1>
         <p>Failed to connect to the chat service. Please try again later.</p>
-        {/* You could add a button to retry initialization here */}
       </div>
     );
   }
@@ -99,56 +93,25 @@ const App = () => {
             />
 
             <Suspense fallback={<LoadingScreen />}>
-              <ErrorBoundary>                                     
+              <ErrorBoundary>
                 <Routes>
-                  {/* Public routes */}
-                  <Route
-                    path="/login"
-                    element={
-                      // <PublicRoute>
-                        <Login />
-                      // </PublicRoute>
-                    }
-                  />
-                  <Route
-                    path="/register"
-                    element={
-                      // <PublicRoute>
-                        <Register />
-                      // </PublicRoute>
-                    }
-                  />
-                  <Route
-                    path="/verify"
-                    element={
-                      // <PublicRoute>
-                        <VerifyAccount />
-                      // </PublicRoute>
-                    }
-                  />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/verify" element={<VerifyAccount />} />
 
-                  {/* Private routes */}
                   <Route
                     path="/"
                     element={
-                      socketInitialized ? ( // Only render PrivateRoute if socket is ready
-                        // <PrivateRoute>
-                          <AppLayout />
-                        // </PrivateRoute>
-                      ) : (
-                        <LoadingScreen /> // Or a "Connecting..." message
-                      )
+                      socketInitialized ? <AppLayout /> : <LoadingScreen />
                     }
                   >
                     <Route index element={<Dashboard />} />
                     <Route path="chat/:chatId" element={<ChatPage />} />
                     <Route path="group/:groupId" element={<GroupChat />} />
                     <Route path="profile" element={<Profile />} />
-                    {/* <Route path="groups" element={<GroupChat />} /> */}
                     <Route path="ChangePassword" element={<ChangePassword />} />
                   </Route>
 
-                  {/* Fallback 404 */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </ErrorBoundary>

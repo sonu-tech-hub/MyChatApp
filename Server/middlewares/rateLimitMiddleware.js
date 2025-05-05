@@ -1,4 +1,3 @@
-// server/middlewares/rateLimitMiddleware.js
 const rateLimit = require('express-rate-limit');
 const RedisStore = require('rate-limit-redis');
 const Redis = require('ioredis');
@@ -6,10 +5,15 @@ const Redis = require('ioredis');
 // Optionally use Redis for distributed rate limiting in production
 let redisClient;
 if (process.env.NODE_ENV === 'production' && process.env.REDIS_URL) {
-  redisClient = new Redis(process.env.REDIS_URL);
+  try {
+    redisClient = new Redis(process.env.REDIS_URL);
+  } catch (error) {
+    console.error('Error connecting to Redis:', error.message);
+    redisClient = null; // Fallback to in-memory store if Redis is unavailable
+  }
 }
 
-// Create different rate limiters for various endpoints
+// Centralized rate limit configuration for easier maintenance
 const createLimiter = (windowMs, max, message) => {
   const config = {
     windowMs,
@@ -18,14 +22,14 @@ const createLimiter = (windowMs, max, message) => {
     standardHeaders: true,
     legacyHeaders: false,
   };
-  
+
   // Use Redis store in production if available
   if (redisClient) {
     config.store = new RedisStore({
-      sendCommand: (...args) => redisClient.call(...args)
+      sendCommand: (...args) => redisClient.call(...args),
     });
   }
-  
+
   return rateLimit(config);
 };
 
@@ -49,3 +53,13 @@ exports.otpLimiter = createLimiter(
   3, // 3 OTP requests per hour
   'Too many verification code requests, please try again later.'
 );
+
+// Fallback for when Redis is unavailable
+exports.fallbackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per windowMs
+  message: { message: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+

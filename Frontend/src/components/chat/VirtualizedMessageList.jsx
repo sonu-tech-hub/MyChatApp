@@ -1,9 +1,10 @@
 // client/src/components/chat/VirtualizedMessageList.jsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { VariableSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { format } from 'date-fns';
 import MessageItem from './MessageItem';
+import { throttle } from 'lodash'; // Optional, you can use lodash for debouncing or throttling.
 
 const VirtualizedMessageList = ({ messages, currentUser, otherUser, loadMoreMessages, hasMore }) => {
   const listRef = useRef(null);
@@ -63,6 +64,7 @@ const VirtualizedMessageList = ({ messages, currentUser, otherUser, loadMoreMess
       height += 150; // Additional height for attachments
     }
     
+    sizeMap.current[index] = height + messageGap; // Cache the height
     return height + messageGap;
   };
   
@@ -78,6 +80,16 @@ const VirtualizedMessageList = ({ messages, currentUser, otherUser, loadMoreMess
       listRef.current.scrollToItem(items.length - 1);
     }
   }, [messages.length]);
+  
+  // Debounced scroll handler to prevent frequent network calls
+  const handleScroll = useCallback(
+    throttle(({ scrollOffset }) => {
+      if (scrollOffset < 200 && hasMore) {
+        loadMoreMessages();
+      }
+    }, 200),
+    [hasMore, loadMoreMessages] // Only recreate the throttle function when these values change
+  );
   
   // Render a row (date header or message)
   const Row = ({ index, style }) => {
@@ -106,13 +118,6 @@ const VirtualizedMessageList = ({ messages, currentUser, otherUser, loadMoreMess
         />
       </div>
     );
-  };
-  
-  // Handle scroll to load more messages
-  const handleScroll = ({ scrollOffset }) => {
-    if (scrollOffset < 200 && hasMore) {
-      loadMoreMessages();
-    }
   };
   
   return (

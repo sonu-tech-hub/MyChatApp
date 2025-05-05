@@ -31,8 +31,9 @@ const ChatWindow = () => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const loadingMoreRef = useRef(null);
- // Fetch other user details and initial messages
- useEffect(() => {
+
+  // Fetch other user details and initial messages
+  useEffect(() => {
     const fetchUserAndMessages = async () => {
       try {
         setIsLoading(true);
@@ -54,7 +55,7 @@ const ChatWindow = () => {
           .map(msg => msg._id);
         
         if (unreadMessages.length > 0) {
-          markMessagesAsRead(unreadMessages);
+          await markMessagesAsRead(unreadMessages); // Await if async
         }
         
         setIsLoading(false);
@@ -73,7 +74,7 @@ const ChatWindow = () => {
       // Cleanup
     };
   }, [userId, user._id]);
-  
+
   // Setup message listeners
   useEffect(() => {
     // Handle new messages
@@ -234,7 +235,7 @@ const ChatWindow = () => {
     
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore) {
+        if (entries[0].isIntersecting && hasMore && !isLoading) { // Avoid triggering while loading
           loadMoreMessages();
         }
       },
@@ -273,15 +274,14 @@ const ChatWindow = () => {
           new Map(newMessages.map(msg => [msg._id, msg])).values()
         );
         
-        
-       // Sort by timestamp and then by ID for stable ordering
-  return uniqueMessages.sort((a, b) => {
-    const dateComparison = new Date(a.createdAt) - new Date(b.createdAt);
-    if (dateComparison !== 0) return dateComparison;
-    // Secondary sort by ID to maintain stable order for messages with same timestamp
-    return a._id.localeCompare(b._id);
-  });
-});
+        // Sort by timestamp and then by ID for stable ordering
+        return uniqueMessages.sort((a, b) => {
+          const dateComparison = new Date(a.createdAt) - new Date(b.createdAt);
+          if (dateComparison !== 0) return dateComparison;
+          // Secondary sort by ID to maintain stable order for messages with same timestamp
+          return a._id.localeCompare(b._id);
+        });
+      });
       
       setHasMore(messagesData.hasMore);
       setPage(prevPage => prevPage + 1);
@@ -362,12 +362,13 @@ const ChatWindow = () => {
       
       // Upload file and send message
       await sendFileMessage(userId, file);
+
     } catch (error) {
       console.error('Error uploading file:', error);
       // Show error status for the message
       setMessages(prevMessages => 
         prevMessages.map(msg => 
-          msg.tempId === `temp-${Date.now()}` 
+          msg.tempId === tempId // Use the pre-created tempId
             ? { ...msg, error: true, sending: false } 
             : msg
         )
@@ -375,114 +376,72 @@ const ChatWindow = () => {
     }
   };
   
-  // Initiate a call
-  const handleCall = (type) => {
-    if (otherUser) {
-      initiateCall(otherUser._id, otherUser.name, type);
-    }
-  };
+    // Initiate a call
+    const handleCall = () => {
+      initiateCall(userId);
+      navigate(`/calls/${userId}`);
+    };
   
-  // Group messages by date
-  const groupedMessages = messages.reduce((groups, message) => {
-    const date = new Date(message.createdAt).toDateString();
-    
-    if (!groups[date]) {
-      groups[date] = [];
+    // Render loading state
+    if (isLoading) {
+      return <LoadingSpinner />;
     }
-    
-    groups[date].push(message);
-    return groups;
-  }, {});
   
-  if (error) {
+    // Render error state
+    if (error) {
+      return (
+        <div className="chat-error">
+          <p>{error}</p>
+        </div>
+      );
+    }
+  
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4">
-        <p className="text-red-500 mb-4">{error}</p>
-        <button 
-          className="px-4 py-2 bg-primary text-white rounded-md"
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex flex-col h-full bg-gray-50">
-      {/* Chat header */}
-      {otherUser && (
-        <ChatHeader 
+      <div className="chat-window">
+        {/* Chat Header */}
+        <ChatHeader
           user={otherUser}
           isOnline={isOnline}
-          onBack={() => navigate('/')}
-          onVideoCall={() => handleCall('video')}
-          onAudioCall={() => handleCall('audio')}
+          onCall={handleCall}
         />
-      )}
-      
-      {/* Messages container */}
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-      >
-        {/* Loading indicator at top for loading more messages */}
-        {hasMore && (
-          <div ref={loadingMoreRef} className="text-center py-2">
-            {isLoading && <LoadingSpinner size="sm" />}
-          </div>
-        )}
-        
-        {/* Render message groups by date */}
-        {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-          <div key={date}>
-            {/* Date separator */}
-            <div className="flex justify-center my-4">
-              <span className="px-3 py-1 bg-gray-200 rounded-full text-xs text-gray-600">
-                {format(new Date(date), 'MMMM d, yyyy')}
-              </span>
-            </div>
+  
+        {/* Messages Container */}
+        <div
+          className="messages-container"
+          ref={messagesContainerRef}
+          onScroll={loadMoreMessages}
+        >
+          <div className="messages">
+            {messages.map((message) => (
+              <MessageItem
+                key={message._id}
+                message={message}
+                currentUser={user}
+                otherUser={otherUser}
+              />
+            ))}
             
-            {/* Messages for this date */}
-            <div className="space-y-3">
-              {dateMessages.map(message => (
-                <MessageItem 
-                  key={message._id || message.tempId}
-                  message={message}
-                  isOwnMessage={message.sender._id === user._id}
-                  otherUser={otherUser}
-                />
-              ))}
-            </div>
+            {/* Loading more indicator */}
+            {isLoading && (
+              <div className="loading-more" ref={loadingMoreRef}>
+                <LoadingSpinner />
+              </div>
+            )}
           </div>
-        ))}
-        
-        {/* Typing indicator */}
-        {isTyping && (
-          <div className="flex items-center space-x-2 text-gray-500">
-            <Avatar 
-              src={otherUser?.profilePhoto} 
-              name={otherUser?.name} 
-              size="xs" 
-            />
-            <span className="text-sm italic">typing...</span>
-          </div>
-        )}
-        
-        {/* Dummy div for scrolling to end */}
+  
+          {/* Message Input */}
+          <MessageInput
+            onSend={handleSendMessage}
+            onFileUpload={handleFileUpload}
+            isTyping={isTyping}
+          />
+        </div>
+  
+        {/* Scroll to the bottom of the chat */}
         <div ref={messagesEndRef} />
       </div>
-      
-      {/* Message input */}
-      <div className="border-t p-4 bg-white">
-        <MessageInput 
-          onSendMessage={handleSendMessage}
-          onFileUpload={handleFileUpload}
-          receiverId={userId}
-        />
-      </div>
-    </div>
-  );
-};
-
-export default ChatWindow;
+    );
+  };
+  
+  export default ChatWindow;
+  

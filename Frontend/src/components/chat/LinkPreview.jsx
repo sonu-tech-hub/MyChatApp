@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HiExternalLink, HiX } from 'react-icons/hi';
 import api from '../../services/api';
 
@@ -7,28 +7,36 @@ const LinkPreview = ({ url }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showIframe, setShowIframe] = useState(false);
-  
-  // Fetch link preview data
+  const [debouncedUrl, setDebouncedUrl] = useState(url);
+
+  // Debounce the URL to prevent unnecessary API calls
   useEffect(() => {
-    const fetchPreviewData = async () => {
-      try {
-        setLoading(true);
-        const { data } = await api.post('/chat/link-preview', { url });
-        setPreviewData(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching link preview:', err);
-        setError('Could not load preview');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (url) {
-      fetchPreviewData();
-    }
+    const timer = setTimeout(() => setDebouncedUrl(url), 500);
+    return () => clearTimeout(timer);
   }, [url]);
-  
+
+  // Fetch link preview data
+  const fetchPreviewData = useCallback(async (link) => {
+    try {
+      setLoading(true);
+      const { data } = await api.post('/chat/link-preview', { url: link });
+      setPreviewData(data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching link preview:', err);
+      setError(err.response?.data?.message || 'Could not load preview');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch the preview data when the debounced URL changes
+  useEffect(() => {
+    if (debouncedUrl) {
+      fetchPreviewData(debouncedUrl);
+    }
+  }, [debouncedUrl, fetchPreviewData]);
+
   // Extract domain from URL
   const extractDomain = (url) => {
     try {
@@ -38,7 +46,8 @@ const LinkPreview = ({ url }) => {
       return url;
     }
   };
-  
+
+  // Loading state
   if (loading) {
     return (
       <div className="mt-2 border border-gray-200 rounded-lg p-3 bg-gray-50 animate-pulse flex items-center justify-center h-20">
@@ -46,7 +55,8 @@ const LinkPreview = ({ url }) => {
       </div>
     );
   }
-  
+
+  // Error state or if no preview data is found
   if (error || !previewData) {
     return (
       <a 
@@ -59,7 +69,7 @@ const LinkPreview = ({ url }) => {
       </a>
     );
   }
-  
+
   return (
     <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden bg-white">
       {/* Preview header */}
@@ -113,7 +123,7 @@ const LinkPreview = ({ url }) => {
           <iframe 
             src={url} 
             title={previewData.title || 'Link preview'}
-            className="w-full h-64 border-0"
+            className="w-full h-96 border-0" // Making the iframe height dynamic
             sandbox="allow-scripts allow-same-origin"
           />
         </div>

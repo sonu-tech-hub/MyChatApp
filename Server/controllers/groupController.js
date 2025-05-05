@@ -13,7 +13,7 @@ exports.createGroup = async (req, res) => {
     if (!name) {
       return res.status(400).json({ message: 'Group name is required' });
     }
-    
+
     // Create group object
     const group = new Group({
       name,
@@ -27,10 +27,9 @@ exports.createGroup = async (req, res) => {
         addedBy: req.user.id
       }]
     });
-    
+
     // Add profile picture if provided
     if (req.file) {
-      // Create file entry
       const file = new File({
         name: req.file.filename,
         originalName: req.file.originalname,
@@ -40,34 +39,34 @@ exports.createGroup = async (req, res) => {
         url: `/uploads/${req.user.id}/${req.file.filename}`,
         uploader: req.user.id
       });
-      
+
       await file.save();
       group.avatar = file.url;
     }
-    
+
     // Add additional members if provided
     if (members.length > 0) {
-      for (const memberId of members) {
-        // Skip if member is the creator (already added)
-        if (memberId === req.user.id) continue;
+      const userChecks = members.map(async (memberId) => {
+        if (memberId === req.user.id) return; // Skip if member is the creator
         
-        // Check if user exists
         const user = await User.findById(memberId);
-        if (!user) continue;
-        
-        group.members.push({
-          user: memberId,
-          role: 'member',
-          canSendMessages: true,
-          canAddMembers: false,
-          addedBy: req.user.id
-        });
-      }
+        if (user) {
+          group.members.push({
+            user: memberId,
+            role: 'member',
+            canSendMessages: true,
+            canAddMembers: false,
+            addedBy: req.user.id
+          });
+        }
+      });
+
+      // Wait for all member checks and additions to complete
+      await Promise.all(userChecks);
     }
-    
+
     await group.save();
-    
-    // Populate member information for response
+
     const populatedGroup = await Group.findById(group._id)
       .populate('members.user', '_id name email profilePhoto')
       .populate('creator', '_id name email profilePhoto');
@@ -78,6 +77,7 @@ exports.createGroup = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // Get all groups for current user
 exports.getUserGroups = async (req, res) => {
@@ -128,26 +128,29 @@ exports.updateGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
     const { name, description } = req.body;
-    
-    // Find group
+
     const group = await Group.findById(groupId);
-    
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
     }
-    
-    // Check if user is admin
+
     if (!group.isAdmin(req.user.id)) {
       return res.status(403).json({ message: 'Only admins can update the group' });
     }
-    
-    // Update fields
+
     if (name) group.name = name;
     if (description !== undefined) group.description = description;
-    
+
     // Handle avatar update if file was uploaded
     if (req.file) {
-      // Create file entry
+      // Delete old file if an avatar is being updated
+      if (group.avatar) {
+        const filePath = path.join(__dirname, '..', group.avatar);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath); // Delete the old file
+        }
+      }
+
       const file = new File({
         name: req.file.filename,
         originalName: req.file.originalname,
@@ -157,26 +160,24 @@ exports.updateGroup = async (req, res) => {
         url: `/uploads/${req.user.id}/${req.file.filename}`,
         uploader: req.user.id
       });
-      
+
       await file.save();
-      
-      // Update group avatar
       group.avatar = file.url;
     }
-    
+
     await group.save();
-    
-    // Populate for response
+
     const updatedGroup = await Group.findById(groupId)
       .populate('members.user', '_id name email profilePhoto')
       .populate('creator', '_id name email profilePhoto');
-    
+
     res.status(200).json({ message: 'Group updated successfully', group: updatedGroup });
   } catch (error) {
     console.error('Update group error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // Delete group
 exports.deleteGroup = async (req, res) => {
@@ -263,53 +264,45 @@ exports.addGroupMembers = async (req, res) => {
   try {
     const { groupId } = req.params;
     const { members } = req.body;
-    
+
     if (!members || !Array.isArray(members)) {
       return res.status(400).json({ message: 'Members array is required' });
     }
-    
-    // Find group
+
     const group = await Group.findById(groupId);
-    
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
     }
-    
-    // Check if user can add members
+
     const userMember = group.members.find(m => m.user.toString() === req.user.id);
     if (!userMember || !userMember.canAddMembers) {
       return res.status(403).json({ message: 'Not authorized to add members' });
     }
-    
-    // Process each member
-    for (const memberData of members) {
-      const { userId, role = 'member', canSendMessages = true, canAddMembers = false } = memberData;
-      
-      // Skip if user is already a member
+
+    const memberChecks = members.map(async ({ userId, role = 'member', canSendMessages = true, canAddMembers = false }) => {
       const existingMember = group.members.find(m => m.user.toString() === userId);
-      if (existingMember) continue;
-      
-      // Check if user exists
+      if (existingMember) return; // Skip if user is already a member
+
       const user = await User.findById(userId);
-      if (!user) continue;
-      
-      // Add member
-      group.members.push({
-        user: userId,
-        role,
-        canSendMessages,
-        canAddMembers,
-        addedBy: req.user.id
-      });
-    }
-    
+      if (user) {
+        group.members.push({
+          user: userId,
+          role,
+          canSendMessages,
+          canAddMembers,
+          addedBy: req.user.id
+        });
+      }
+    });
+
+    await Promise.all(memberChecks);
+
     await group.save();
-    
-    // Populate for response
+
     const updatedGroup = await Group.findById(groupId)
       .populate('members.user', '_id name email profilePhoto')
       .populate('creator', '_id name email profilePhoto');
-    
+
     res.status(200).json({ message: 'Members added successfully', group: updatedGroup });
   } catch (error) {
     console.error('Add group members error:', error);

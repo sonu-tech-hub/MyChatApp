@@ -27,7 +27,7 @@ const generateTokens = (userId) => {
 // Register a new user
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, address, password, location } = req.body;
+    const { name, email, phone, address, password, location, verificationMethod } = req.body;
     
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -38,6 +38,11 @@ exports.register = async (req, res) => {
       return res.status(400).json({
         message: 'User already exists with this email or phone number'
       });
+    }
+    
+    // Validate required fields
+    if (!name || !email || !phone || !password || !address) {
+      return res.status(400).json({ message: 'All fields are required.' });
     }
     
     // Hash password
@@ -52,7 +57,6 @@ exports.register = async (req, res) => {
       address,
       password: hashedPassword,
       location: location || { type: 'Point', coordinates: [0, 0] },
-      createdAt: new Date()
     });
     
     await user.save();
@@ -62,16 +66,19 @@ exports.register = async (req, res) => {
     await OTPService.storeOTP(user._id, otp);
     
     // Send OTP based on user preference
-    if (req.body.verificationMethod === 'email') {
-      await EmailService.sendVerificationEmail(email, otp);
-      user.verificationMethod = 'email';
-    } else {
-      await SMSService.sendVerificationSMS(phone, otp);
-      user.verificationMethod = 'phone';
+    try {
+      if (verificationMethod === 'email') {
+        await EmailService.sendVerificationEmail(email, otp);
+        user.verificationMethod = 'email';
+      } else {
+        await SMSService.sendVerificationSMS(phone, otp);
+        user.verificationMethod = 'phone';
+      }
+      await user.save();
+    } catch (serviceError) {
+      return res.status(500).json({ message: 'Error sending OTP', error: serviceError.message });
     }
-    
-    await user.save();
-    
+
     return res.status(201).json({
       message: 'User registered successfully. Please verify your account.',
       userId: user._id,
@@ -85,6 +92,7 @@ exports.register = async (req, res) => {
     });
   }
 };
+
 
 // Verify user with OTP
 exports.verifyAccount = async (req, res) => {
@@ -100,18 +108,18 @@ exports.verifyAccount = async (req, res) => {
       });
     }
     
-    // Update user as verified
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { isVerified: true },
-      { new: true }
-    );
+    // Get the user first
+    const user = await User.findById(userId);
     
     if (!user) {
       return res.status(404).json({
         message: 'User not found'
       });
     }
+
+    // Update user as verified
+    user.isVerified = true;
+    await user.save();
     
     // Generate tokens
     const tokens = generateTokens(user._id);
@@ -159,17 +167,15 @@ exports.login = async (req, res) => {
     
     // Check if user is verified
     if (!user.isVerified) {
-      // Generate new OTP for unverified users
       const otp = OTPService.generateOTP();
       await OTPService.storeOTP(user._id, otp);
       
-      // Send OTP
       if (user.verificationMethod === 'email') {
         await EmailService.sendVerificationEmail(user.email, otp);
       } else {
         await SMSService.sendVerificationSMS(user.phone, otp);
       }
-      
+
       return res.status(401).json({
         message: 'Account not verified. A new verification code has been sent.',
         userId: user._id,
@@ -215,6 +221,7 @@ exports.login = async (req, res) => {
     });
   }
 };
+
 
 // Refresh access token
 exports.refreshToken = async (req, res) => {
@@ -266,6 +273,7 @@ exports.refreshToken = async (req, res) => {
   }
 };
 
+
 // Logout user
 exports.logout = async (req, res) => {
   try {
@@ -281,6 +289,42 @@ exports.logout = async (req, res) => {
     console.error('Logout error:', error);
     return res.status(500).json({
       message: 'Error during logout',
+      error: error.message
+    });
+  }
+};
+
+exports.sendOTP = async (req, res) => {
+  try {
+    const { emailOrPhone } = req.body;
+    
+    // Find user by email or phone
+    const user = await User.findOne({
+      $or: [{ email: emailOrPhone }, { phone: emailOrPhone }]
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found'
+      });
+    }
+    
+    const otp = OTPService.generateOTP();
+    await OTPService.storeOTP(user._id, otp);
+    
+    if (user.verificationMethod === 'email') {
+      await EmailService.sendVerificationEmail(user.email, otp);
+    } else {
+      await SMSService.sendVerificationSMS(user.phone, otp);
+    }
+    
+    return res.status(200).json({
+      message: 'OTP sent successfully'
+    });
+  } catch (error) {
+    console.error('OTP send error:', error);
+    return res.status(500).json({
+      message: 'Error sending OTP',
       error: error.message
     });
   }
